@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI DocScan Pro Studio | المسح الضوئي وقراءة النصوص الاحترافي</title>
+    
+    <!-- Google Fonts: Cairo & Readex Pro -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        },
+                        neon: {
+                            emerald: '#10b981',
+                            cyan: '#06b6d4',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            blue: '#3b82f6'
+                        },
+                        dark: {
+                            950: '#030712',
+                            900: '#0b1329',
+                            850: '#111c38',
+                            800: '#1e293b'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Cairo', 'Readex Pro', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome Icons, Cropper.js & jsPDF -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Stable Tesseract.js v5 -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #030712;
+            --glass-card: rgba(15, 23, 42, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #f8fafc;
+            font-family: 'Cairo', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 10% 10%, rgba(6, 182, 212, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(16, 185, 129, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.8) 0%, #030712 100%);
+            pointer-events: none;
+        }
+
+        .glass-panel {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .glass-card-interactive {
+            background: rgba(30, 41, 59, 0.35);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card-interactive:hover {
+            border-color: rgba(16, 185, 129, 0.4);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .glass-input {
+            background: rgba(11, 19, 41, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        .glass-input:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+            outline: none;
+        }
+
+        .tab-btn-active {
+            background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+            color: #ffffff !important;
+            box-shadow: 0 8px 20px rgba(5, 150, 105, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(11, 19, 41, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.4); border-radius: 9999px; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-100 antialiased pb-24 lg:pb-0">
+
+    <div class="bg-mesh"></div>
+
+    <!-- Header Navigation -->
+    <header class="glass-panel sticky top-0 z-40 border-b border-slate-800/80 px-4 py-3.5 sm:px-8">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-4 space-x-reverse">
+                <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-tr from-brand-600 via-emerald-500 to-neon-cyan p-0.5 shadow-lg shadow-brand-500/20">
+                    <div class="w-full h-full bg-dark-950 rounded-[14px] flex items-center justify-center">
+                        <i class="fa-solid fa-expand text-xl bg-clip-text text-transparent bg-gradient-to-tr from-neon-emerald to-neon-cyan"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-neon-emerald">
+                            AI DocScan Pro
+                        </h1>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-500/10 text-neon-emerald border border-emerald-500/30">Executive</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 font-medium hidden sm:block">استوديو الاستخراج الذكي والمعالجة المتقدمة للمستندات</p>
+                </div>
+            </div>
+
+            <!-- التحكم بالحساب والواجهة -->
+            <div class="flex items-center space-x-3 space-x-reverse">
+                
+                <!-- وسم المستخدم بعد تسجيل الدخول -->
+                <div id="userGreetingTag" class="hidden items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-neon-emerald font-bold text-xs">
+                    <i class="fa-solid fa-user-check text-sm"></i>
+                    <span>أهلاً <strong id="lblUsername" class="text-white"></strong></span>
+                </div>
+
+                
+                <!-- زر إنشاء الحساب / تسجيل الخروج -->
+                <button id="btnAuthAction" onclick="handleAuthBtnClick()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all">
+                    <i id="btnAuthIcon" class="fa-solid fa-user-plus"></i>
+                    <span id="btnAuthText">إنشاء حساب</span>
+                </button>
+
+                <button onclick="toggleFullscreen()" class="p-2.5 rounded-xl glass-card-interactive text-slate-300 hover:text-neon-cyan" title="شاشة كاملة">
+                    <i class="fa-solid fa-expand text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Sidebar Desktop Navigation -->
+        <aside class="hidden lg:flex lg:col-span-3 flex-col gap-3">
+            <button onclick="switchWorkspaceTab('tab-scanner')" id="btn-tab-scanner-desktop" class="step-nav-btn tab-btn-active w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-camera text-base"></i>
+                    <span>1. التقاط المستند</span>
+                </div>
+            </button>
+
+            <button onclick="switchWorkspaceTab('tab-editor')" id="btn-tab-editor-desktop" class="step-nav-btn w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
+                    <span>2. المعالجة والفلترة</span>
+                </div>
+            </button>
+
+            <button onclick="switchWorkspaceTab('tab-ocr')" id="btn-tab-ocr-desktop" class="step-nav-btn w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-brain text-base"></i>
+                    <span>3. استخراج النص (OCR)</span>
+                </div>
+            </button>
+
+            <button onclick="switchWorkspaceTab('tab-export')" id="btn-tab-export-desktop" class="step-nav-btn w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-file-pdf text-base"></i>
+                    <span>4. التصدير والسجل</span>
+                </div>
+            </button>
+
+            <div class="mt-auto glass-panel p-4 rounded-2xl space-y-3 border-emerald-500/20">
+                <label class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-language text-neon-emerald"></i>
+                    <span>لغة الاستخراج الحالية</span>
+                </label>
+                <select id="selectedOcrLanguage" class="w-full glass-input rounded-xl px-3 py-2 text-xs font-bold">
+                    <option value="ara+eng" selected>العربية + الإنجليزية</option>
+                    <option value="ara">العربية فقط</option>
+                    <option value="eng">English Only</option>
+                </select>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="lg:col-span-9 space-y-6">
+
+            <!-- TAB 1: SCANNER & CAPTURE -->
+            <section id="tab-scanner" class="workspace-module block space-y-6">
+                <div class="glass-panel p-5 sm:p-7 rounded-3xl space-y-5">
+                    
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-camera text-neon-emerald text-lg"></i>
+                            <h2 class="text-base font-extrabold text-slate-100">التقاط المستند أو رفعه</h2>
+                        </div>
+                        <div class="flex bg-dark-950 p-1 rounded-xl border border-slate-800">
+                            <button onclick="toggleCaptureMode('cam')" id="mode-cam-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-600 text-white">الكاميرا</button>
+                            <button onclick="toggleCaptureMode('file')" id="mode-file-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400">رفع ملف</button>
+                        </div>
+                    </div>
+
+                    <div id="camCaptureBox" class="space-y-4">
+                        <div class="relative w-full aspect-[4/3] sm:aspect-[16/9] bg-dark-950 rounded-2xl overflow-hidden border border-slate-800/80 flex items-center justify-center">
+                            <video id="webcamVideo" autoplay playsinline class="w-full h-full object-contain"></video>
+                        </div>
+
+                        <button onclick="takeDocumentSnapshot()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-brand-600 via-emerald-600 to-teal-500 text-white font-black text-sm shadow-xl shadow-brand-600/20 hover:scale-[1.005] active:scale-98 transition-all flex items-center justify-center gap-3">
+                            <i class="fa-solid fa-circle-dot text-lg"></i>
+                            <span>التقاط المستند</span>
+                        </button>
+                    </div>
+
+                    <div id="fileCaptureBox" class="hidden">
+                        <div onclick="document.getElementById('docFileInput').click()" class="border-2 border-dashed border-slate-700 hover:border-neon-emerald rounded-3xl p-12 text-center cursor-pointer bg-dark-950/50">
+                            <input type="file" id="docFileInput" accept="image/*" class="hidden" onchange="onFileUploaded(event)">
+                            <i class="fa-solid fa-cloud-arrow-up text-5xl text-brand-500 mb-4"></i>
+                            <h3 class="text-base font-bold text-slate-100">اضغط لرفع مستند أو اسحبه هنا</h3>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- TAB 2: IMAGE PROCESSING -->
+            <section id="tab-editor" class="workspace-module hidden space-y-6">
+                <div class="glass-panel p-5 sm:p-7 rounded-3xl space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                        <h2 class="text-base font-extrabold text-slate-100">تحسين ووضوح المستند</h2>
+                        <button onclick="openCropDialog()" class="px-4 py-2 rounded-xl glass-card-interactive text-xs font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-crop-simple text-neon-cyan"></i>
+                            <span>قص المستند</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div class="lg:col-span-8 bg-dark-950 rounded-2xl p-3 border border-slate-800/80 flex items-center justify-center min-h-[300px]">
+                            <canvas id="filterCanvas" class="max-w-full max-h-[400px] object-contain rounded-xl"></canvas>
+                        </div>
+
+                        <div class="lg:col-span-4 space-y-5 bg-dark-900/60 p-5 rounded-2xl border border-slate-800/80">
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="setFilterPreset('binarize')" id="preset-binarize" class="px-3 py-2 rounded-xl glass-card-interactive text-xs font-bold">أبيض/أسود</button>
+                                <button onclick="setFilterPreset('gray')" id="preset-gray" class="px-3 py-2 rounded-xl glass-card-interactive text-xs font-bold">رمادي</button>
+                            </div>
+
+                            <div class="space-y-4 pt-2 border-t border-slate-800">
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1"><span class="text-slate-300">السطوع</span><span id="lblBrightness">100%</span></div>
+                                    <input type="range" id="inputBrightness" min="50" max="200" value="100" oninput="applyCanvasFilterPipeline()" class="w-full accent-brand-500">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1"><span class="text-slate-300">التباين</span><span id="lblContrast">100%</span></div>
+                                    <input type="range" id="inputContrast" min="50" max="250" value="100" oninput="applyCanvasFilterPipeline()" class="w-full accent-brand-500">
+                                </div>
+                            </div>
+
+                            <button onclick="switchWorkspaceTab('tab-ocr'); runOCRProcessingEngine();" class="w-full mt-4 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-xs shadow-lg flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-brain"></i>
+                                <span>اعتماد والانتقال للاستخراج (OCR)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: OCR EXTRACTION -->
+            <section id="tab-ocr" class="workspace-module hidden space-y-6">
+                <div class="glass-panel p-5 sm:p-7 rounded-3xl space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                        <h2 class="text-base font-extrabold text-slate-100">استخراج النص (OCR)</h2>
+                        <button onclick="runOCRProcessingEngine()" class="px-4 py-2 rounded-xl bg-brand-600 text-white font-bold text-xs">إعادة الاستخراج</button>
+                    </div>
+
+                    <div id="ocrProgressCard" class="glass-panel p-5 rounded-2xl space-y-3 border-emerald-500/30 hidden">
+                        <div class="flex justify-between text-xs font-bold">
+                            <span id="ocrProgressStatus" class="text-emerald-400">جاري المعالجة...</span>
+                            <span id="ocrPercentText" class="text-neon-emerald">0%</span>
+                        </div>
+                        <div class="w-full h-2.5 bg-dark-950 rounded-full overflow-hidden">
+                            <div id="ocrProgressBar" class="h-full bg-neon-emerald transition-all duration-300 w-0"></div>
+                        </div>
+                    </div>
+
+                    <textarea id="ocrOutputTextarea" class="w-full h-80 glass-input p-5 rounded-2xl text-sm leading-relaxed" placeholder="سوف يظهر النص المستخرج هنا..."></textarea>
+                </div>
+            </section>
+
+            <!-- TAB 4: EXPORT & HISTORY -->
+            <section id="tab-export" class="workspace-module hidden space-y-6">
+                <div class="glass-panel p-5 sm:p-7 rounded-3xl space-y-6">
+                    <h2 class="text-base font-extrabold text-slate-100 border-b border-slate-800 pb-4">التصدير والحفظ</h2>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div onclick="generatePDFDocument()" class="glass-card-interactive p-5 rounded-2xl cursor-pointer flex items-center gap-4">
+                            <i class="fa-solid fa-file-pdf text-3xl text-rose-400"></i>
+                            <div>
+                                <h4 class="text-xs font-extrabold text-slate-100">تصدير كـ PDF</h4>
+                                <p class="text-[11px] text-slate-400">تحميل المستند بتنسيق PDF</p>
+                            </div>
+                        </div>
+
+                        <div onclick="generateTXTDocument()" class="glass-card-interactive p-5 rounded-2xl cursor-pointer flex items-center gap-4">
+                            <i class="fa-solid fa-file-lines text-3xl text-amber-400"></i>
+                            <div>
+                                <h4 class="text-xs font-extrabold text-slate-100">تصدير كـ TXT</h4>
+                                <p class="text-[11px] text-slate-400">تنزيل الملف كـ نص بسيط</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar (الهيدر السفلي للهواتف) -->
+    <nav class="lg:hidden fixed bottom-0 inset-x-0 z-50 glass-panel border-t border-slate-800 px-2 py-2">
+        <div class="grid grid-cols-5 gap-1 max-w-md mx-auto">
+            <button onclick="switchWorkspaceTab('tab-scanner')" id="btn-tab-scanner-mobile" class="mobile-nav-btn tab-btn-active flex flex-col items-center py-2 rounded-xl text-xs font-bold">
+                <i class="fa-solid fa-camera mb-1 text-base"></i>
+                <span class="text-[9px]">الالتقاط</span>
+            </button>
+            <button onclick="switchWorkspaceTab('tab-editor')" id="btn-tab-editor-mobile" class="mobile-nav-btn flex flex-col items-center py-2 rounded-xl text-xs font-bold text-slate-400">
+                <i class="fa-solid fa-wand-magic-sparkles mb-1 text-base"></i>
+                <span class="text-[9px]">الفلاتر</span>
+            </button>
+            <button onclick="switchWorkspaceTab('tab-ocr')" id="btn-tab-ocr-mobile" class="mobile-nav-btn flex flex-col items-center py-2 rounded-xl text-xs font-bold text-slate-400">
+                <i class="fa-solid fa-brain mb-1 text-base"></i>
+                <span class="text-[9px]">النص</span>
+            </button>
+            <button onclick="switchWorkspaceTab('tab-export')" id="btn-tab-export-mobile" class="mobile-nav-btn flex flex-col items-center py-2 rounded-xl text-xs font-bold text-slate-400">
+                <i class="fa-solid fa-file-pdf mb-1 text-base"></i>
+                <span class="text-[9px]">التصدير</span>
+            </button>
+            
+            <!-- زر النافذة الرائعة عن التطبيق في الهيدر السفلي -->
+            <button onclick="openAboutModal()" class="flex flex-col items-center py-2 rounded-xl text-xs font-bold text-neon-cyan hover:bg-slate-800/40 transition-colors">
+                <i class="fa-solid fa-circle-info mb-1 text-base animate-pulse"></i>
+                <span class="text-[9px]">عن التطبيق</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Crop Modal -->
+    <div id="cropModalDialog" class="fixed inset-0 z-50 bg-dark-950/90 hidden flex flex-col p-4 sm:p-8">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-sm font-bold">قص المستند</h3>
+            <button onclick="closeCropDialog()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="flex-1 bg-dark-900 rounded-2xl p-2 flex items-center justify-center overflow-hidden">
+            <img id="cropImageTarget" class="max-w-full max-h-full">
+        </div>
+        <div class="mt-4 flex justify-end gap-3">
+            <button onclick="closeCropDialog()" class="px-4 py-2 rounded-xl glass-card-interactive text-xs font-bold">إلغاء</button>
+            <button onclick="applyCroppedSelection()" class="px-5 py-2 rounded-xl bg-neon-emerald text-dark-950 font-extrabold text-xs">تطبيق</button>
+        </div>
+    </div>
+
+    <!-- نافذة انشاء الحساب المباشرة (Registration Modal) -->
+    <div id="registerModal" class="fixed inset-0 z-50 bg-dark-950/80 backdrop-blur-xl hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl space-y-6 border border-emerald-500/30 relative shadow-2xl">
+            
+            <button onclick="closeRegisterModal()" class="absolute top-5 left-5 text-slate-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="text-center space-y-2">
+                <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-neon-cyan p-0.5 mb-2 shadow-lg shadow-brand-500/30">
+                    <div class="w-full h-full bg-dark-950 rounded-[14px] flex items-center justify-center">
+                        <i class="fa-solid fa-user-plus text-2xl text-neon-emerald"></i>
+                    </div>
+                </div>
+                <h3 class="text-xl font-black text-slate-100">إنشاء حساب جديد</h3>
+                <p class="text-xs text-slate-400 font-medium">أدخل بياناتك لحفظ مستنداتك وسجلات الاستخراج فورياً</p>
+            </div>
+
+            <form onsubmit="handleRegisterSubmit(event)" class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-300">الاسم / اسم المستخدم</label>
+                    <div class="relative">
+                        <i class="fa-regular fa-user absolute right-3.5 top-3.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="regNameInput" required placeholder="مثال: محمد علي" class="w-full glass-input pr-10 pl-4 py-2.5 rounded-xl text-xs font-medium">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-300">البريد الإلكتروني</label>
+                    <div class="relative">
+                        <i class="fa-regular fa-envelope absolute right-3.5 top-3.5 text-slate-400 text-xs"></i>
+                        <input type="email" id="regEmailInput" required placeholder="name@example.com" class="w-full glass-input pr-10 pl-4 py-2.5 rounded-xl text-xs font-medium">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-300">كلمة المرور</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute right-3.5 top-3.5 text-slate-400 text-xs"></i>
+                        <input type="password" required placeholder="••••••••" class="w-full glass-input pr-10 pl-4 py-2.5 rounded-xl text-xs font-medium">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-600 via-emerald-600 to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-brand-600/20 hover:scale-[1.01] active:scale-98 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span>إتمام إنشاء الحساب</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة "عن التطبيق" الفاخرة المحدثة (About Modal) -->
+    <div id="aboutModal" class="fixed inset-0 z-50 bg-dark-950/85 backdrop-blur-xl hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-3xl space-y-6 border border-emerald-500/30 relative shadow-2xl">
+            
+            <button onclick="closeAboutModal()" class="absolute top-5 left-5 text-slate-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <!-- عنوان النافذة وشعار التطبيق -->
+            <div class="text-center space-y-2">
+                <div class="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 via-emerald-500 to-neon-cyan p-0.5 mb-2 shadow-xl shadow-brand-500/30">
+                    <div class="w-full h-full bg-dark-950 rounded-[14px] flex items-center justify-center">
+                        <i class="fa-solid fa-microchip text-3xl text-neon-emerald"></i>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center gap-2">
+                    <h3 class="text-xl font-black text-slate-100">AI DocScan Pro Studio</h3>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-neon-emerald border border-emerald-500/40">v2.5</span>
+                </div>
+                <p class="text-xs text-slate-400 font-medium">منصة الاستخراج الضوئي الذكي وتحسين المستندات الاحترافية</p>
+            </div>
+
+            <!-- مميزات التطبيق -->
+            <div class="space-y-3 bg-dark-900/60 p-4 rounded-2xl border border-slate-800">
+                <div class="flex items-start gap-3">
+                    <i class="fa-solid fa-bolt text-neon-emerald mt-1 text-sm"></i>
+                    <p class="text-xs text-slate-300 leading-relaxed"><strong class="text-white">محرك OCR هجين:</strong> يدعم استخراج النصوص العربية والإنجليزية بدقة فائقة باستخدام تقنيات الذكاء الاصطناعي.</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <i class="fa-solid fa-sliders text-neon-cyan mt-1 text-sm"></i>
+                    <p class="text-xs text-slate-300 leading-relaxed"><strong class="text-white">استوديو المعالجة:</strong> فلاتر تحسين ووضوح المستندات، التحكم بالتباين والسطوع والقص الذكي.</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <i class="fa-solid fa-file-export text-neon-amber mt-1 text-sm"></i>
+                    <p class="text-xs text-slate-300 leading-relaxed"><strong class="text-white">التصدير السريع:</strong> تصدير مستنداتك المحسنة مباشرة كملفات PDF أو نصوص TXT جاهزة للمشاركة.</p>
+                </div>
+            </div>
+
+            <!-- توثيق المطور والعلامة المعتمدة -->
+            <div class="border-t border-slate-800/80 pt-5 space-y-3 text-center">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-md">
+                    <span class="text-xs text-slate-400 font-bold">تطوير وتصميم:</span>
+                    <span class="text-sm font-black text-white">محمد رسول</span>
+                    <div class="relative flex items-center justify-center" title="مطور موثق">
+                        <i class="fa-solid fa-circle-check text-neon-blue text-base"></i>
+                        <span class="absolute -inset-0.5 rounded-full bg-blue-500/30 animate-ping pointer-events-none"></span>
+                    </div>
+                </div>
+
+                <!-- حقوق الطبع والنشر -->
+                <p class="text-[11px] text-slate-500 font-medium">
+                    جميع الحقوق محفوظة © 2026 AI DocScan Pro Studio
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- عنصر التنبيه الصغير (Toast Notification) -->
+    <div id="toastNotification" class="fixed bottom-20 sm:bottom-6 right-6 z-50 glass-panel px-4 py-3 rounded-2xl border border-emerald-500/40 text-xs font-bold text-slate-100 flex items-center gap-3 shadow-2xl transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+        <i class="fa-solid fa-circle-check text-neon-emerald text-base"></i>
+        <span id="toastMessage">تم العملية بنجاح</span>
+    </div>
+
+    <!-- JavaScript Execution -->
+    <script>
+        const studioState = {
+            activeTab: 'tab-scanner',
+            mediaStream: null,
+            baseImage: null,
+            canvas: null,
+            ctx: null,
+            filters: { brightness: 100, contrast: 100, preset: 'normal', rotation: 0 },
+            cropper: null,
+            currentUser: null
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            studioState.canvas = document.getElementById('filterCanvas');
+            studioState.ctx = studioState.canvas.getContext('2d');
+            initWebcamStream();
+        });
+
+        // --- إدارة النافذة الرائعة عن التطبيق ---
+        function openAboutModal() {
+            document.getElementById('aboutModal').classList.remove('hidden');
+        }
+
+        function closeAboutModal() {
+            document.getElementById('aboutModal').classList.add('hidden');
+        }
+
+        // --- إدارة إنشاء الحساب وتسجيل الخروج ---
+
+        function handleAuthBtnClick() {
+            if (studioState.currentUser) {
+                performLogout();
+            } else {
+                openRegisterModal();
+            }
+        }
+
+        function openRegisterModal() {
+            document.getElementById('registerModal').classList.remove('hidden');
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('registerModal').classList.add('hidden');
+        }
+
+        function handleRegisterSubmit(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('regNameInput').value.trim();
+            const emailInput = document.getElementById('regEmailInput').value.trim();
+
+            if (!nameInput || !emailInput) return;
+
+            studioState.currentUser = { name: nameInput, email: emailInput };
+
+            document.getElementById('lblUsername').textContent = studioState.currentUser.name;
+            document.getElementById('userGreetingTag').classList.remove('hidden');
+            document.getElementById('userGreetingTag').classList.add('flex');
+
+            document.getElementById('btnAuthText').textContent = 'تسجيل الخروج';
+            document.getElementById('btnAuthIcon').className = 'fa-solid fa-arrow-right-from-bracket';
+            document.getElementById('btnAuthAction').className = 'px-4 py-2 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs shadow-lg shadow-rose-600/20 flex items-center gap-2 transition-all';
+
+            closeRegisterModal();
+            showToast(`أهلاً بك يا ${studioState.currentUser.name}! تم إنشاء حسابك بنجاح.`);
+        }
+
+        function performLogout() {
+            studioState.currentUser = null;
+
+            document.getElementById('userGreetingTag').classList.add('hidden');
+            document.getElementById('userGreetingTag').classList.remove('flex');
+
+            document.getElementById('btnAuthText').textContent = 'إنشاء حساب';
+            document.getElementById('btnAuthIcon').className = 'fa-solid fa-user-plus';
+            document.getElementById('btnAuthAction').className = 'px-4 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all';
+
+            showToast('تم تسجيل الخروج بنجاح.');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }, 3500);
+        }
+
+        // --- وظائف الاستوديو والمسح الضوئي ---
+
+        function switchWorkspaceTab(tabId) {
+            studioState.activeTab = tabId;
+
+            document.querySelectorAll('.step-nav-btn').forEach(btn => {
+                btn.classList.remove('tab-btn-active');
+                btn.classList.add('text-slate-400');
+            });
+            const dBtn = document.getElementById(`btn-${tabId}-desktop`);
+            if (dBtn) {
+                dBtn.classList.add('tab-btn-active');
+                dBtn.classList.remove('text-slate-400');
+            }
+
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                btn.classList.remove('tab-btn-active');
+                btn.classList.add('text-slate-400');
+            });
+            const mBtn = document.getElementById(`btn-${tabId}-mobile`);
+            if (mBtn) {
+                mBtn.classList.add('tab-btn-active');
+                mBtn.classList.remove('text-slate-400');
+            }
+
+            document.querySelectorAll('.workspace-module').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            if (tabId === 'tab-scanner' && !studioState.mediaStream) {
+                initWebcamStream();
+            } else if (tabId !== 'tab-scanner') {
+                stopWebcamStream();
+            }
+        }
+
+        function toggleCaptureMode(mode) {
+            if (mode === 'cam') {
+                document.getElementById('camCaptureBox').classList.remove('hidden');
+                document.getElementById('fileCaptureBox').classList.add('hidden');
+                initWebcamStream();
+            } else {
+                document.getElementById('camCaptureBox').classList.add('hidden');
+                document.getElementById('fileCaptureBox').classList.remove('hidden');
+                stopWebcamStream();
+            }
+        }
+
+        async function initWebcamStream() {
+            const video = document.getElementById('webcamVideo');
+            if (studioState.mediaStream) stopWebcamStream();
+
+            try {
+                studioState.mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                video.srcObject = studioState.mediaStream;
+            } catch (err) {
+                console.warn('Camera Error:', err);
+            }
+        }
+
+        function stopWebcamStream() {
+            if (studioState.mediaStream) {
+                studioState.mediaStream.getTracks().forEach(t => t.stop());
+                studioState.mediaStream = null;
+            }
+        }
+
+        function takeDocumentSnapshot() {
+            const video = document.getElementById('webcamVideo');
+            if (!studioState.mediaStream || !video.videoWidth) return;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = video.videoWidth;
+            tempCanvas.height = video.videoHeight;
+            tempCanvas.getContext('2d').drawImage(video, 0, 0);
+
+            const img = new Image();
+            img.onload = () => {
+                studioState.baseImage = img;
+                renderBaseCanvas();
+                switchWorkspaceTab('tab-editor');
+            };
+            img.src = tempCanvas.toDataURL('image/png');
+        }
+
+        function onFileUploaded(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.onload = () => {
+                    studioState.baseImage = img;
+                    renderBaseCanvas();
+                    switchWorkspaceTab('tab-editor');
+                };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderBaseCanvas() {
+            if (!studioState.baseImage) return;
+
+            const img = studioState.baseImage;
+            studioState.canvas.width = img.width;
+            studioState.canvas.height = img.height;
+            applyCanvasFilterPipeline();
+        }
+
+        function applyCanvasFilterPipeline() {
+            if (!studioState.baseImage) return;
+
+            studioState.filters.brightness = document.getElementById('inputBrightness').value;
+            studioState.filters.contrast = document.getElementById('inputContrast').value;
+
+            document.getElementById('lblBrightness').textContent = studioState.filters.brightness + '%';
+            document.getElementById('lblContrast').textContent = studioState.filters.contrast + '%';
+
+            const img = studioState.baseImage;
+            studioState.ctx.clearRect(0, 0, studioState.canvas.width, studioState.canvas.height);
+
+            let filterString = `brightness(${studioState.filters.brightness}%) contrast(${studioState.filters.contrast}%)`;
+            if (studioState.filters.preset === 'gray') filterString += ' grayscale(100%)';
+
+            studioState.ctx.filter = filterString;
+            studioState.ctx.drawImage(img, 0, 0);
+
+            if (studioState.filters.preset === 'binarize') {
+                const imgData = studioState.ctx.getImageData(0, 0, studioState.canvas.width, studioState.canvas.height);
+                const data = imgData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    const val = avg >= 128 ? 255 : 0;
+                    data[i] = val; data[i + 1] = val; data[i + 2] = val;
+                }
+                studioState.ctx.putImageData(imgData, 0, 0);
+            }
+        }
+
+        function setFilterPreset(preset) {
+            studioState.filters.preset = studioState.filters.preset === preset ? 'normal' : preset;
+            applyCanvasFilterPipeline();
+        }
+
+        function openCropDialog() {
+            const modal = document.getElementById('cropModalDialog');
+            modal.classList.remove('hidden');
+
+            const targetImg = document.getElementById('cropImageTarget');
+            targetImg.src = studioState.canvas.toDataURL();
+            if (studioState.cropper) studioState.cropper.destroy();
+            studioState.cropper = new Cropper(targetImg, { viewMode: 1, autoCropArea: 0.9 });
+        }
+
+        function closeCropDialog() {
+            document.getElementById('cropModalDialog').classList.add('hidden');
+        }
+
+        function applyCroppedSelection() {
+            if (!studioState.cropper) return;
+            const croppedCanvas = studioState.cropper.getCroppedCanvas();
+            const img = new Image();
+            img.onload = () => {
+                studioState.baseImage = img;
+                renderBaseCanvas();
+                closeCropDialog();
+            };
+            img.src = croppedCanvas.toDataURL();
+        }
+
+        async function runOCRProcessingEngine() {
+            if (!studioState.canvas) return;
+
+            const progressCard = document.getElementById('ocrProgressCard');
+            const progressBar = document.getElementById('ocrProgressBar');
+            const percentText = document.getElementById('ocrPercentText');
+            const selectedLang = document.getElementById('selectedOcrLanguage').value;
+
+            progressCard.classList.remove('hidden');
+
+            try {
+                const result = await Tesseract.recognize(
+                    studioState.canvas.toDataURL('image/png'),
+                    selectedLang,
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                const pct = Math.round(m.progress * 100);
+                                progressBar.style.width = pct + '%';
+                                percentText.textContent = pct + '%';
+                            }
+                        }
+                    }
+                );
+
+                document.getElementById('ocrOutputTextarea').value = result.data.text.trim();
+                progressCard.classList.add('hidden');
+
+            } catch (err) {
+                console.error('OCR Error:', err);
+                progressCard.classList.add('hidden');
+            }
+        }
+
+        function generateTXTDocument() {
+            const text = document.getElementById('ocrOutputTextarea').value;
+            if (!text) return;
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `DocScan_${Date.now()}.txt`;
+            a.click();
+        }
+
+        function generatePDFDocument() {
+            const text = document.getElementById('ocrOutputTextarea').value;
+            if (!text) return;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text(doc.splitTextToSize(text, 180), 10, 10);
+            doc.save(`DocScan_${Date.now()}.pdf`);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else if (document.exitFullscreen) document.exitFullscreen();
+        }
+    </script>
+</body>
+</html>
